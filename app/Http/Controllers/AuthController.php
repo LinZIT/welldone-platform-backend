@@ -57,7 +57,6 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $user_disconnected = User::find($user->id);
-        $user_disconnected->isOnline = 0;
         $user_disconnected->save();
         $request->user()->currentAccessToken()->delete();
         return [
@@ -134,39 +133,32 @@ class AuthController extends Controller
                 'password' => Hash::make($request->password),
                 'color' => '#C0EA0F',
             ]);
+            // Obtener status activo o crear status si no existe
+            $status = Status::firstOrNew(['description' => 'Activo']);
+            $status->save();
+
+            // Se asocia el status al usuario
+            $user->status()->associate($status);
+
+            // Obtener rol cliente o crear rol si no existe
+            $role = Role::firstOrNew(['description' => 'Master']);
+            $role->save();
+
+            // Se asocia el rol al usuario
+            $user->role()->associate($role);
+            $department = Department::where('id', $request->department)->first();
+            $user->department()->associate($department);
+            // Se guarda el usuario
+            $user->save();
+
+            // Token de auth
+            $token = $user->createToken("auth_token")->plainTextToken;
+
+            return response()->json(['data' => $user, 'token' => $token, 'token_type' => 'Bearer', 'status' => true]);
         } catch (\Throwable $th) {
             //throw $th;
             return response()->json(['status' => false, 'errors' => $th->getMessage()], 400);
         }
-        $user = User::create([
-            'names' => $request->names,
-            'surnames' => $request->surnames,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'color' => '#C0EA0F',
-        ]);
-        // Obtener status activo o crear status si no existe
-        $status = Status::firstOrNew(['description' => 'Activo']);
-        $status->save();
-
-        // Se asocia el status al usuario
-        $user->status()->associate($status);
-
-        // Obtener rol cliente o crear rol si no existe
-        $role = Role::firstOrNew(['description' => 'Master']);
-        $role->save();
-
-        // Se asocia el rol al usuario
-        $user->role()->associate($role);
-        $department = Department::where('id', $request->department)->first();
-        $user->department()->associate($department);
-        // Se guarda el usuario
-        $user->save();
-
-        // Token de auth
-        $token = $user->createToken("auth_token")->plainTextToken;
-
-        return response()->json(['data' => $user, 'token' => $token, 'token_type' => 'Bearer', 'status' => true]);
     }
 
     public function change_color(Request $request, User $user)
